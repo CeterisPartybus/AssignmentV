@@ -50,6 +50,22 @@
 #'   You can to do this either using Shell commands or a Git GUI of your choice.
 #' * In the HTML file that you submit, include the hyperlink to the project repository 
 #'   (e.g., https://github.com/yourUserName/yourProjectName)
+#'   
+#'
+#' 2. Getting to know the API
+#' 
+#' * Visit the documentation website for the API provided by ticketmaster.com
+#' * Familiarize yourself with the features and functionalities of the Ticketmaster 
+#'   Discovery API. 
+#'   Have a particular look at rate limits.
+#' * Whithin the scope of this assignment, you do not have to request your own API key. 
+#'   Instead retrieve a valid key from the API Explorer. 
+#'   This API key enables you to perform the GET requests needed throughout this assignment.
+#' * Even though this API key is not secret per se (it is publicly visible on the 
+#'   API Explorer website), please comply to the common secrecy practices discussed 
+#'   in the lecture and the tutorial: Treat the API key as a secret token. 
+#'   Your API key I key should neither appear in the code that you are submitting 
+#'   nor in your public GitHub repository.
 #'  
 #'</details>  
 #' 
@@ -114,7 +130,67 @@ spin("Goebel_Isabell_AssignmentV.R", knit = FALSE)
 #' 
 #' 
 #' 
+#' # GitHub
+#' 
 #' My GitHub repository: https://github.com/IsabellGoebel/AssignmentV
+#' 
+#' 
+#' 
+#' # API
+#' 
+#' 
+#' All API calls follow this format: 
+#' https://app.ticketmaster.com/{package}/{version}/{resource}.json?apikey=**{API key}
+#' 
+#' 
+#' **Rate Limit**
+#' 
+#' * All API keys are issued with a default quota of 5000 API calls per day and 
+#'   rate limitation of 5 requests per second. 
+#' * We do increase rate limits on case-by-case basis. In order to increase the 
+#'   rate limit for a particular application, we need to verify the following:
+#'   * The application is in compliance with our Terms of Service
+#'   * The application is in compliance with our branding guide
+#'   * The application is representing the Ticketmaster data properly
+#'   
+#'   Once these three criteria are verified, the rate limit is increased to what 
+#'   Ticketmaster and the developer determine to be appropriate.
+#' 
+#' 
+#' **Rate Limit Info in Response Header**
+#' 
+#' You can see how much of your quota has been used by checking the following response headers:
+#' 
+#' * Rate-Limit: What’s the rate limit available to you. The default is 5000.
+#' * Rate-Limit-Available: How many requests are available to you. This will be 5000 minus all the requests you’ve done.
+#' * Rate-Limit-Over: How many requests over your quota you’ve made.
+#' * Rate-Limit-Reset: The UTC date and time of when your quota will be reset.
+#' * `curl -I 'http://app.ticketmaster.com/discovery/v1/events.json?keyword=Queen&apikey=xxx'`
+#' 
+#' 
+#' API Response When Quota is Reached
+#' 
+#' When you do go over your quota, you will get an HTTP status code 429 indicating 
+#' you’ve made too many requests. 
+#' The following is the API response you will receive:
+#' 
+#' `{
+#'     "fault": {
+#'          "faultstring": "Rate limit quota violation. Quota limit  exceeded. Identifier : {apikey}",
+#'                "detail": {
+#'                       "errorcode": "policies.ratelimit.QuotaViolation"
+#'   }}}`
+#' 
+#' 
+#' **API Explorer**
+#' 
+#' see https://developer.ticketmaster.com/api-explorer/v2/
+#' 
+#' Source key from file key.R into this file
+#+
+source("key.R")
+#' 
+#' 
 #' 
 #' 
 #' 
