@@ -66,6 +66,17 @@ in your personal GitHub repository.
   in the lecture and the tutorial: Treat the API key as a secret token. 
   Your API key I key should neither appear in the code that you are submitting 
   nor in your public GitHub repository.
+
+
+3. Interacting with the API - the basics
+
+* Load the packages needed to interact with APIs using R.
+* Perform a first GET request, that searches for event venues in Germany (countryCode = "DE"). 
+  Extract the content from the response object and inspect the resulting list. 
+  Describe what you can see.
+* Extract the name, the city, the postalCode and address, as well as the url 
+  and the longitude and latitude of the venues to a data frame.
+  
  
 </details>  
 
@@ -98,34 +109,24 @@ knitr::opts_chunk$set(echo=TRUE,  # display code
 
 ```{r packages, message = FALSE}
 # Check if packages have been installed before; if not, install them
-if (!require("readr")) install.packages("readr")
-if (!require("data.table")) install.packages("data.table")
 if (!require("tidyr")) install.packages("tidyr")
 if (!require("dplyr")) install.packages("dplyr")
 if (!require("knitr")) install.packages("knitr")
 if (!require("formatR")) install.packages("formatR")
-if (!require("lme4")) install.packages("lme4")
-if (!require("lattice")) install.packages("lattice")
-if (!require("ggplot2")) install.packages("ggplot2")
-if (!require("arm")) install.packages("arm")
-if (!require("broom")) install.packages("broom")
-if (!require("shiny")) install.packages("shiny")
-if (!require("sjPlot")) install.packages("sjPlot")
+if (!require("jsonlite")) install.packages("jsonlite")
+if (!require("rvest")) install.packages("rvest")
+if (!require("xml2")) install.packages("xml2")
+if (!require("httr")) install.packages("httr")
 
 # call package libraries
-library(readr)
-library(data.table)
 library(tidyr)
 library(dplyr)
 library(knitr)
 library(formatR)
-library(lme4)
-library(lattice)
-library(ggplot2)
-library(arm)
-library(broom)
-library(shiny)
-library(sjPlot)
+library(jsonlite)
+library(rvest)
+library(xml2)
+library(httr)
 ```
 
 </details>
@@ -201,6 +202,60 @@ Source key from file key.R into this file
 
 ```{r }
 source("key.R")
+```
+
+
+
+
+# Interacting with the API - the basics
+
+
+* Load the packages needed to interact with APIs using R: see preamble
+
+* Perform a first GET request, that searches for event venues in Germany (countryCode = "DE"). 
+  Extract the content from the response object and inspect the resulting list. 
+  Describe what you can see.
+
+```{r }
+# since the country will vary
+country <- "DE"
+
+# generate response object
+# URI https://app.ticketmaster.com/{package}/{version}/{resource}.json?apikey=**{API key}
+#ticketmaster <- GET("https://app.ticketmaster.com/",
+#                    query = list(
+#                      apikey = key,
+#                      package = discovery,
+#                      version = v2,
+#                      resource = events,
+#                    ))
+
+ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/events",
+                    query = list(apikey = key,
+                                 countyCode = country)) #%>% content()
+
+# show content of object
+ticketmaster
+
+# extract content: explicit form (recommended, use as = "")
+# original format of response
+#ticketmaster_content <- content(ticketmaster, as="text")
+
+# convert from json
+#jsonlite::fromJSON(content(ticketmaster, as="text"))
+```
+
+
+
+I don't see much so far...
+
+
+
+
+* Extract the name, the city, the postalCode and address, as well as the url 
+  and the longitude and latitude of the venues to a data frame.
+
+```{r }
 ```
 
 
