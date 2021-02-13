@@ -117,6 +117,8 @@ if (!require("jsonlite")) install.packages("jsonlite")
 if (!require("rvest")) install.packages("rvest")
 if (!require("xml2")) install.packages("xml2")
 if (!require("httr")) install.packages("httr")
+if (!require("rlist")) install.packages("rlist")
+if (!require("ggplot2")) install.packages("ggplot2") 
 
 # call package libraries
 library(tidyr)
@@ -127,6 +129,8 @@ library(jsonlite)
 library(rvest)
 library(xml2)
 library(httr)
+library(rlist)
+library(ggplot2)
 ```
 
 </details>
@@ -220,53 +224,22 @@ source("key.R")
 # since the country will vary
 country <- "DE"
 
-
-
-# delete this later!!!
-key <- "7elxdku9GGG5k8j0Xm8KWdANDgecHMV0"
-
-
+# locale : The locale in ISO code format. Multiple comma-separated values can be provided. 
+# When omitting the country part of the code (e.g. only 'en' or 'fr') then the 
+# first matching locale is used. When using a '*' it matches all locales. '*' can 
+# only be used at the end (e.g. 'en-us,en,*')
 
 # generate response object
-ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/events",
+ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
                     query = list(apikey = key,
-                                 countryCode = country)) #%>% content()
+                                 countryCode = country,
+                                 locale = "*"))
 
 # show content & status code of object
 ticketmaster
 
 # extract content of response object
-content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
-
-# inspect content
-glimpse(content)
-
-# event content
-df <- data.frame(content$'_embedded'$events)
-glimpse(df)
-```
-
-
-The extracted (large) list consist of 3 elements.
-In `_embedded$events` there is a data frame consisting of 20 observations of 16
-variables.
-Further, `_links` contains links to the first, next, and last page found on the
-main page "/discovery/v2/events", from where I extracted the data.
-Lastly, `page` contains information on the size (20), total elements (1590), 
-total pages (80) and number (0) of the extracted data. 
-
-
-```{r }
-# generate response object
-ticketmaster2 <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
-                    query = list(apikey = key,
-                                 countryCode = country)) #%>% content()
-
-# show content & status code of object
-ticketmaster2
-
-# extract content of response object
-venuesDE <- jsonlite::fromJSON(content(ticketmaster2, as="text"))
+venuesDE <- jsonlite::fromJSON(content(ticketmaster, as="text"))
 
 # inspect content
 glimpse(venuesDE)
@@ -277,8 +250,12 @@ The extracted list consist of 3 elements.
 In `_embedded$venues` there is a data frame consisting of 20 rows of 19 columns.
 Further, `_links` contains links to the first, next, and last page found on the
 main page "/discovery/v2/venues.json", from where I extracted the data.
-Lastly, `page` contains information on the size (20), total elements (4743), 
-total pages (238) and number (0) of the extracted data. 
+Lastly, `page` contains information on the size 
+(`r as.numeric(venuesDE$page$size)`), total elements 
+(`r as.numeric(venuesDE$page$totalElements)`), 
+total pages 
+(`r as.numeric(venuesDE$page$totalPages)`) and current page number
+(`r as.numeric(venuesDE$page$number)`) of the extracted data. 
 
 
 
@@ -313,9 +290,6 @@ glimpse(venue_data)
 
 
 
-ISSUE: longi and lati only have 2 entries?
-
-
 
 
 # Interacting with the API - advanced
@@ -336,8 +310,200 @@ ISSUE: longi and lati only have 2 entries?
   address, url, longitude, and latitude. 
   Join the information in one large data frame.
   
-* The resulting data frame should look something like this (note that the exact 
-  number of search results may have changed since this document has been last modified):
+
+```{r }
+# number of results per page
+perpage <- as.numeric(venuesDE$page$size)
+perpage
+
+# total results
+n <- as.numeric(venuesDE$page$totalElements)
+n
+
+# number of complete pages
+pages <- floor(n/perpage)
+pages
+
+# number of entries on the last incomplete page
+remainder <- n-perpage*floor(n/perpage)
+remainder
+
+# initiate a data frame in correct dimensions to speed up our loop:
+venueDE_all <- data.frame(
+  name = character(n), 
+  city = character(n), 
+  postalCode = character(n), 
+  address = character(n),
+  url = character(n), 
+  longitude = character(n),
+  latitude = character(n)
+  )
+
+# not sure whether issue bc page 1 is actually page 0 ...
+#pages0 <- pages-1
+
+# should start with 0 instead of one, but index issue...
+# loop over complete pages with 20 entries each
+
+for (i in 1:pages) {
+  print(i)
+  ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
+                      query = list(apikey = key,
+                                   countryCode = country,
+                                   locale = "*",
+                                   page = i))
+  
+  # extract content of response object
+  venuesDE_content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+  
+  # gradually fill data frame page by page 
+  index <- (perpage * i - (perpage-1)):(perpage * i)
+  
+  venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
+  venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
+  venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
+  venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
+  venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+  
+  ## if the object location (containing longi- and latitude) does exist
+  #if (!is.null( venuesDE_content$'_embedded'$venues$location)) {
+  #  venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
+  #  venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
+  #} else { # if the object location (containing longi- and latitude) does not exist
+  #  venueDE_all[index,"longitude"] <- rep(NA, perpage)
+  #  venueDE_all[index,"latitude"] <- rep(NA, perpage)
+  #} 
+  
+  Sys.sleep(0.5)
+}
+
+
+#rlang::last_error()
+#rlang::last_trace()
+
+# there are still issues with the location vars! maybe extract only $venues and
+# fill the data frame later? but not sure how this is possible...
+
+# check pages that cause trouble (why does it happen on different pages though?)
+i <- 235 #191 #18 # 10 #77
+ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
+                    query = list(apikey = key,
+                                 countryCode = country,
+                                 locale = "*", 
+                                 page = i))
+venuesDE_check <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+
+check <- data.frame(venuesDE_check$'_embedded'$venues)
+glimpse(check)
+
+vars <- c("name", "postalCode", "url")
+check_df <- data.frame(check[vars])
+
+# add variables from data frame within data frame 'venue_df'
+check_df$city = check[["city"]][["name"]]
+check_df$address = check[["address"]][["line1"]]
+check_df$longitude = check[["location"]][["longitude"]]
+check_df$latitude = check[["location"]][["latitude"]]
+
+glimpse(check_df)
+
+
+# some entries are missing the location, that appears to cause issues when retrieving
+# the data
+
+
+# The last page is incomplete, hence we add it manually outside the loop
+#i <- i + 1
+i <- 612
+
+ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
+                    query = list(apikey = key,
+                                 countryCode = country,
+                                 locale = "*", 
+                                 page = i))
+
+# extract content of response object
+venuesDE_content_last <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+
+index <- (perpage * i - (perpage-1)):(n)
+
+venuesDE_content_last$'_embedded'$venues
+
+# i guess im replacing insted of appending, but c/rbind() dont seem to work
+venueDE_all[index,"name"] <- data.frame(venuesDE_content_last$'_embedded'$venues$name)
+venueDE_all[index,"url"] <- data.frame(venuesDE_content_last$'_embedded'$venues$url)
+venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content_last$'_embedded'$venues$postalCode)
+venueDE_all[index,"city"] <- data.frame(venuesDE_content_last$'_embedded'$venues$city$name)
+venueDE_all[index,"address"] <- data.frame(venuesDE_content_last$'_embedded'$venues$address$line1)
+venueDE_all[index,"longitude"] <- data.frame(venuesDE_content_last$'_embedded'$venues$location$longitude)
+venueDE_all[index,"latitude"] <- data.frame(venuesDE_content_last$'_embedded'$venues$location$latitude)
+
+
+glimpse(venueDE_all)
+```
+
+
+
+
+
+# Visualizing the extracted data
+
+
+* Below, you can find code that produces a map of Germany. 
+  Add points to the map indicating the locations of the event venues across Germany.
+* You will find that some coordinates lie way beyond the German borders and can 
+  be assumed to be faulty. 
+  Set coordinate values to NA where the value of longitude is outside the range 
+  (5.866944, 15.043611) or where the value of latitude is outside the range 
+  (47.271679, 55.0846) (these coordinate ranges have been derived from the extreme 
+  points of Germany as listed on Wikipedia (see here). 
+  For extreme points of other countries, see here).
+
+
+```{r }
+
+venueDE_all$longitude <- as.numeric(venueDE_all$longitude)
+venueDE_all$latitude <- as.numeric(venueDE_all$latitude)
+
+# replace values
+venueDE_all$longitude[venueDE_all$longitude < 5.866944] <- NA
+venueDE_all$longitude[venueDE_all$longitude > 15.043611] <- NA
+venueDE_all$latitude[venueDE_all$latitude < 47.271679] <- NA
+venueDE_all$latitude[venueDE_all$latitude > 55.0846] <- NA
+
+
+ggplot(data = venueDE_all, 
+       mapping = aes(x = longitude, y = latitude)) +
+  geom_polygon(
+    aes(x = long, y = lat, group = group), 
+    data = map_data("world", region = "Germany"),
+    fill = "grey90",color = "black") +
+  theme_void() + 
+  coord_quickmap() +
+  labs(title = "Event locations across Germany", 
+       caption = "Source: ticketmaster.com") + 
+  theme(title = element_text(size=8, face='bold'),
+        plot.caption = element_text(face = "italic")) +
+  geom_point(alpha = 0.8)
+```
+
+
+
+
+
+# Event locations in other countries
+
+* Repeat exercises 2 to 5 for another European country of your choice. 
+  (Hint: Clean code pays off! If you have coded the exercises efficiently, only 
+  very few adaptions need to be made.)
+
+
+
+
+
+
+
+
 
 
 
