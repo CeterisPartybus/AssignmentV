@@ -205,40 +205,121 @@ source("key.R")
 # since the country will vary
 country <- "DE"
 
-# generate response object
-# URI https://app.ticketmaster.com/{package}/{version}/{resource}.json?apikey=**{API key}
-#ticketmaster <- GET("https://app.ticketmaster.com/",
-#                    query = list(
-#                      apikey = key,
-#                      package = discovery,
-#                      version = v2,
-#                      resource = events,
-#                    ))
 
+
+# delete this later!!!
+key <- "7elxdku9GGG5k8j0Xm8KWdANDgecHMV0"
+
+
+
+# generate response object
 ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/events",
                     query = list(apikey = key,
-                                 countyCode = country)) #%>% content()
+                                 countryCode = country)) #%>% content()
 
-# show content of object
+# show content & status code of object
 ticketmaster
 
-# extract content: explicit form (recommended, use as = "")
-# original format of response
-#ticketmaster_content <- content(ticketmaster, as="text")
+# extract content of response object
+content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
 
-# convert from json
-#jsonlite::fromJSON(content(ticketmaster, as="text"))
-#' 
-#' 
-#' I don't see much so far...
-#' 
-#' 
-#' 
-#' 
+# inspect content
+glimpse(content)
+
+# event content
+df <- data.frame(content$'_embedded'$events)
+glimpse(df)
+
+
+#'
+#' The extracted (large) list consist of 3 elements.
+#' In `_embedded$events` there is a data frame consisting of 20 observations of 16
+#' variables.
+#' Further, `_links` contains links to the first, next, and last page found on the
+#' main page "/discovery/v2/events", from where I extracted the data.
+#' Lastly, `page` contains information on the size (20), total elements (1590), 
+#' total pages (80) and number (0) of the extracted data. 
+#'
+
+# generate response object
+ticketmaster2 <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
+                    query = list(apikey = key,
+                                 countryCode = country)) #%>% content()
+
+# show content & status code of object
+ticketmaster2
+
+# extract content of response object
+venuesDE <- jsonlite::fromJSON(content(ticketmaster2, as="text"))
+
+# inspect content
+glimpse(venuesDE)
+
+#'
+#' The extracted list consist of 3 elements.
+#' In `_embedded$venues` there is a data frame consisting of 20 rows of 19 columns.
+#' Further, `_links` contains links to the first, next, and last page found on the
+#' main page "/discovery/v2/venues.json", from where I extracted the data.
+#' Lastly, `page` contains information on the size (20), total elements (4743), 
+#' total pages (238) and number (0) of the extracted data. 
+#'
+#'
+#'
 #' * Extract the name, the city, the postalCode and address, as well as the url 
 #'   and the longitude and latitude of the venues to a data frame.
+#'
 #+
+# venue content
+venue_df <- data.frame(venuesDE$'_embedded'$venues)
+glimpse(venue_df)
 
+# extract variables from data frame 'venue_df'
+vars <- c("name", "postalCode", "url")
+
+# combine in new data frame 'venue_data'
+venue_data <- data.frame(venue_df[vars])
+
+# add variables from data frame within data frame 'venue_df'
+venue_data$city = venue_df[["city"]][["name"]]
+venue_data$address = venue_df[["address"]][["line1"]]
+venue_data$longitude = venue_df[["location"]][["longitude"]]
+venue_data$latitude = venue_df[["location"]][["latitude"]]
+
+# adjust order
+order <- c("name", "city", "postalCode", "address", "url", "longitude", "latitude")
+venue_data <- venue_data[, order]
+
+# check new data frame
+glimpse(venue_data)
+
+#' 
+#' 
+#' ISSUE: longi and lati only have 2 entries?
+#' 
+#' 
+#' 
+#' 
+#' # Interacting with the API - advanced
+#' 
+#' * Have a closer look at the list element named page. 
+#'   Did your GET request from exercise 3 return all event locations in Germany? 
+#'   Obviously not - there are of course much more venues in Germany than those 
+#'   contained in this list. 
+#'   Your GET request only yielded the first results page containing the first 20 
+#'   out of several thousands of venues.
+#'   
+#' * Check the API documentation under the section Venue Search. 
+#'   How can you request the venues from the remaining results pages?
+#'   
+#' * Write a for loop that iterates through the results pages and performs a GET 
+#'   request for all venues in Germany. 
+#'   After each iteration, extract the seven variables name, city, postalCode, 
+#'   address, url, longitude, and latitude. 
+#'   Join the information in one large data frame.
+#'   
+#' * The resulting data frame should look something like this (note that the exact 
+#'   number of search results may have changed since this document has been last modified):
+#'
 #' 
 #' 
 #' 
