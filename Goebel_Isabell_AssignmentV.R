@@ -302,7 +302,7 @@ n <- as.numeric(venuesDE$page$totalElements)
 n
 
 # number of complete pages
-pages <- floor(n/perpage)
+pages <- floor(n/perpage)-1  # adjustment since page 1 is page 0
 pages
 
 # number of entries on the last incomplete page
@@ -326,8 +326,9 @@ venueDE_all <- data.frame(
 # should start with 0 instead of one, but index issue...
 # loop over complete pages with 20 entries each
 
-for (i in 1:pages) {
+for (i in 0:pages) {
   print(i)
+
   ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
                       query = list(apikey = key,
                                    countryCode = country,
@@ -337,26 +338,125 @@ for (i in 1:pages) {
   # extract content of response object
   venuesDE_content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
   
+  # adjust index, since the first page is page 0
+  k <- i+1
+  
   # gradually fill data frame page by page 
-  index <- (perpage * i - (perpage-1)):(perpage * i)
+  index <- (perpage * k - (perpage-1)):(perpage * k)
+
+  # if the object name exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$name)) {
+    venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
+  } else { # if the object address does not exist
+    venueDE_all[index,"name"] <- rep(NA, perpage)
+  } 
   
-  venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
-  venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
-  venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
-  venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
-  venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+  # if the object url exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$url)) {
+    venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
+  } else { # if the object address does not exist
+    venueDE_all[index,"url"] <- rep(NA, perpage)
+  } 
   
-  ## if the object location (containing longi- and latitude) does exist
-  #if (!is.null( venuesDE_content$'_embedded'$venues$location)) {
-  #  venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
-  #  venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
-  #} else { # if the object location (containing longi- and latitude) does not exist
-  #  venueDE_all[index,"longitude"] <- rep(NA, perpage)
-  #  venueDE_all[index,"latitude"] <- rep(NA, perpage)
-  #} 
+  # if the object postalCode exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$postalCode)) {
+    venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
+  } else { # if the object address does not exist
+    venueDE_all[index,"postalCode"] <- rep(NA, perpage)
+  } 
   
-  Sys.sleep(0.5)
+  # if the object city$name exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$city$name)) {
+    venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
+  } else { # if the object address does not exist
+    venueDE_all[index,"city"] <- rep(NA, perpage)
+  } 
+  
+  # if the object address$line1 exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$address$line1)) {
+    venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+  } else { # if the object address does not exist
+    venueDE_all[index,"address"] <- rep(NA, perpage)
+  } 
+  
+  # if the object location§longtude exists (assuming then latitude exists as well)
+  if (!is.null( venuesDE_content$'_embedded'$venues$location$longitude)) {
+    venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
+    venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
+  } else { # if the object location (containing longi- and latitude) does not exist
+    venueDE_all[index,"longitude"] <- rep(NA, perpage)
+    venueDE_all[index,"latitude"] <- rep(NA, perpage)
+  } 
+  
+  # obey rate limit (request per second < 5)
+  Sys.sleep(0.25)
 }
+
+# last page
+i <- i + 1
+
+ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
+                    query = list(apikey = key,
+                                 countryCode = country,
+                                 locale = "*",
+                                 page = i))
+
+# extract content of response object
+venuesDE_content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+
+# adjust index, since the first page is page 0
+k <- i+1
+
+# gradually fill data frame page by page 
+index <- (perpage * k - (perpage-1)):(n)
+
+# if the object name exists
+if (!is.null(venuesDE_content$'_embedded'$venues$name)) {
+  venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
+} else { # if the object address does not exist
+  venueDE_all[index,"name"] <- rep(NA, remainder)
+} 
+
+# if the object url exists
+if (!is.null(venuesDE_content$'_embedded'$venues$url)) {
+  venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
+} else { # if the object address does not exist
+  venueDE_all[index,"url"] <- rep(NA, remainder)
+} 
+
+# if the object postalCode exists
+if (!is.null(venuesDE_content$'_embedded'$venues$postalCode)) {
+  venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
+} else { # if the object address does not exist
+  venueDE_all[index,"postalCode"] <- rep(NA, remainder)
+} 
+
+# if the object city$name exists
+if (!is.null(venuesDE_content$'_embedded'$venues$city$name)) {
+  venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
+} else { # if the object address does not exist
+  venueDE_all[index,"city"] <- rep(NA, remainder)
+} 
+
+# if the object address$line1 exists
+if (!is.null(venuesDE_content$'_embedded'$venues$address$line1)) {
+  venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+} else { # if the object address does not exist
+  venueDE_all[index,"address"] <- rep(NA, remainder)
+} 
+
+# if the object location§longtude exists (assuming then latitude exists as well)
+if (!is.null( venuesDE_content$'_embedded'$venues$location$longitude)) {
+  venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
+  venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
+} else { # if the object location (containing longi- and latitude) does not exist
+  venueDE_all[index,"longitude"] <- rep(NA, remainder)
+  venueDE_all[index,"latitude"] <- rep(NA, remainder)
+} 
+
+
+
+
 
 
 #rlang::last_error()
@@ -366,7 +466,7 @@ for (i in 1:pages) {
 # fill the data frame later? but not sure how this is possible...
 
 # check pages that cause trouble (why does it happen on different pages though?)
-i <- 235 #191 #18 # 10 #77
+i <- 347 #39 #235 #191 #18 # 10 #77
 ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
                     query = list(apikey = key,
                                  countryCode = country,
@@ -395,7 +495,8 @@ glimpse(check_df)
 
 # The last page is incomplete, hence we add it manually outside the loop
 #i <- i + 1
-i <- 612
+
+i <- 611
 
 ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
                     query = list(apikey = key,
