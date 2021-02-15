@@ -148,7 +148,7 @@ spin("Goebel_Isabell_AssignmentV.R", knit = FALSE)
 
 # GitHub
 
-My GitHub repository: https://github.com/IsabellGoebel/AssignmentV
+My GitHub repository: https://github.com/CeterisPartybus/AssignmentV
 
 
 
@@ -229,20 +229,29 @@ country <- "DE"
 # first matching locale is used. When using a '*' it matches all locales. '*' can 
 # only be used at the end (e.g. 'en-us,en,*')
 
+cntry <- c("DE", "DK")
+
+for (c in cntry){
+  #print(c)
+  #nam <- paste("cntry", c, sep = "")
+  #paste("cntry2", c, sep = "")
+  #assign(paste0('ctry', c), NULL)
+}
+
 # generate response object
 ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
-                    query = list(apikey = key,
-                                 countryCode = country,
-                                 locale = "*"))
+                      query = list(apikey = key,
+                                   countryCode = country,
+                                   locale = "*"))
 
 # show content & status code of object
-ticketmaster
+  ticketmaster
 
 # extract content of response object
-venuesDE <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+  venuesDE <- jsonlite::fromJSON(content(ticketmaster, as="text"))
 
 # inspect content
-glimpse(venuesDE)
+  glimpse(venuesDE)
 ```
 
 
@@ -321,7 +330,7 @@ n <- as.numeric(venuesDE$page$totalElements)
 n
 
 # number of complete pages
-pages <- floor(n/perpage)
+pages <- floor(n/perpage)-1  # adjustment since page 1 is page 0
 pages
 
 # number of entries on the last incomplete page
@@ -345,8 +354,9 @@ venueDE_all <- data.frame(
 # should start with 0 instead of one, but index issue...
 # loop over complete pages with 20 entries each
 
-for (i in 1:pages) {
-  print(i)
+for (i in 0:pages) {
+
+  # generate response object
   ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
                       query = list(apikey = key,
                                    countryCode = country,
@@ -356,92 +366,125 @@ for (i in 1:pages) {
   # extract content of response object
   venuesDE_content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
   
+  # adjust index, since the first page is page 0
+  k <- i+1
+  
   # gradually fill data frame page by page 
-  index <- (perpage * i - (perpage-1)):(perpage * i)
+  index <- (perpage * k - (perpage-1)):(perpage * k)
+
+  # if the object name exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$name)) {
+    venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
+  } else { # if the object address does not exist
+    venueDE_all[index,"name"] <- rep(NA, perpage)
+  } 
   
-  venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
-  venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
-  venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
-  venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
-  venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+  # if the object url exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$url)) {
+    venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
+  } else { # if the object address does not exist
+    venueDE_all[index,"url"] <- rep(NA, perpage)
+  } 
   
-  ## if the object location (containing longi- and latitude) does exist
-  #if (!is.null( venuesDE_content$'_embedded'$venues$location)) {
-  #  venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
-  #  venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
-  #} else { # if the object location (containing longi- and latitude) does not exist
-  #  venueDE_all[index,"longitude"] <- rep(NA, perpage)
-  #  venueDE_all[index,"latitude"] <- rep(NA, perpage)
-  #} 
+  # if the object postalCode exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$postalCode)) {
+    venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
+  } else { # if the object address does not exist
+    venueDE_all[index,"postalCode"] <- rep(NA, perpage)
+  } 
   
-  Sys.sleep(0.5)
+  # if the object city$name exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$city$name)) {
+    venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
+  } else { # if the object address does not exist
+    venueDE_all[index,"city"] <- rep(NA, perpage)
+  } 
+  
+  # if the object address$line1 exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$address$line1)) {
+    venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+  } else { # if the object address does not exist
+    venueDE_all[index,"address"] <- rep(NA, perpage)
+  } 
+  
+  # if the object location§longtude exists (assuming then latitude exists as well)
+  if (!is.null( venuesDE_content$'_embedded'$venues$location$longitude)) {
+    venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
+    venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
+  } else { # if the object location (containing longi- and latitude) does not exist
+    venueDE_all[index,"longitude"] <- rep(NA, perpage)
+    venueDE_all[index,"latitude"] <- rep(NA, perpage)
+  } 
+  
+  # obey rate limit (request per second < 5)
+  Sys.sleep(0.25)
 }
 
-
-#rlang::last_error()
-#rlang::last_trace()
-
-# there are still issues with the location vars! maybe extract only $venues and
-# fill the data frame later? but not sure how this is possible...
-
-# check pages that cause trouble (why does it happen on different pages though?)
-i <- 235 #191 #18 # 10 #77
-ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
-                    query = list(apikey = key,
-                                 countryCode = country,
-                                 locale = "*", 
-                                 page = i))
-venuesDE_check <- jsonlite::fromJSON(content(ticketmaster, as="text"))
-
-check <- data.frame(venuesDE_check$'_embedded'$venues)
-glimpse(check)
-
-vars <- c("name", "postalCode", "url")
-check_df <- data.frame(check[vars])
-
-# add variables from data frame within data frame 'venue_df'
-check_df$city = check[["city"]][["name"]]
-check_df$address = check[["address"]][["line1"]]
-check_df$longitude = check[["location"]][["longitude"]]
-check_df$latitude = check[["location"]][["latitude"]]
-
-glimpse(check_df)
-
-
-# some entries are missing the location, that appears to cause issues when retrieving
-# the data
-
-
-# The last page is incomplete, hence we add it manually outside the loop
-#i <- i + 1
-i <- 612
+# last page
+i <- i + 1
 
 ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
                     query = list(apikey = key,
                                  countryCode = country,
-                                 locale = "*", 
+                                 locale = "*",
                                  page = i))
 
 # extract content of response object
-venuesDE_content_last <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+venuesDE_content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
 
-index <- (perpage * i - (perpage-1)):(n)
+# adjust index, since the first page is page 0
+k <- i+1
 
-venuesDE_content_last$'_embedded'$venues
+# gradually fill data frame page by page 
+index <- (perpage * k - (perpage-1)):(n)
 
-# i guess im replacing insted of appending, but c/rbind() dont seem to work
-venueDE_all[index,"name"] <- data.frame(venuesDE_content_last$'_embedded'$venues$name)
-venueDE_all[index,"url"] <- data.frame(venuesDE_content_last$'_embedded'$venues$url)
-venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content_last$'_embedded'$venues$postalCode)
-venueDE_all[index,"city"] <- data.frame(venuesDE_content_last$'_embedded'$venues$city$name)
-venueDE_all[index,"address"] <- data.frame(venuesDE_content_last$'_embedded'$venues$address$line1)
-venueDE_all[index,"longitude"] <- data.frame(venuesDE_content_last$'_embedded'$venues$location$longitude)
-venueDE_all[index,"latitude"] <- data.frame(venuesDE_content_last$'_embedded'$venues$location$latitude)
+# if the object name exists
+if (!is.null(venuesDE_content$'_embedded'$venues$name)) {
+  venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
+} else { # if the object address does not exist
+  venueDE_all[index,"name"] <- rep(NA, remainder)
+} 
 
+# if the object url exists
+if (!is.null(venuesDE_content$'_embedded'$venues$url)) {
+  venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
+} else { # if the object address does not exist
+  venueDE_all[index,"url"] <- rep(NA, remainder)
+} 
 
+# if the object postalCode exists
+if (!is.null(venuesDE_content$'_embedded'$venues$postalCode)) {
+  venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
+} else { # if the object address does not exist
+  venueDE_all[index,"postalCode"] <- rep(NA, remainder)
+} 
+
+# if the object city$name exists
+if (!is.null(venuesDE_content$'_embedded'$venues$city$name)) {
+  venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
+} else { # if the object address does not exist
+  venueDE_all[index,"city"] <- rep(NA, remainder)
+} 
+
+# if the object address$line1 exists
+if (!is.null(venuesDE_content$'_embedded'$venues$address$line1)) {
+  venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+} else { # if the object address does not exist
+  venueDE_all[index,"address"] <- rep(NA, remainder)
+} 
+
+# if the object location§longtude exists (assuming then latitude exists as well)
+if (!is.null( venuesDE_content$'_embedded'$venues$location$longitude)) {
+  venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
+  venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
+} else { # if the object location (containing longi- and latitude) does not exist
+  venueDE_all[index,"longitude"] <- rep(NA, remainder)
+  venueDE_all[index,"latitude"] <- rep(NA, remainder)
+} 
+
+# check data
 glimpse(venueDE_all)
 ```
-
 
 
 
@@ -461,7 +504,7 @@ glimpse(venueDE_all)
 
 
 ```{r }
-
+# convert longi- and latitude from chr to num
 venueDE_all$longitude <- as.numeric(venueDE_all$longitude)
 venueDE_all$latitude <- as.numeric(venueDE_all$latitude)
 
@@ -471,7 +514,7 @@ venueDE_all$longitude[venueDE_all$longitude > 15.043611] <- NA
 venueDE_all$latitude[venueDE_all$latitude < 47.271679] <- NA
 venueDE_all$latitude[venueDE_all$latitude > 55.0846] <- NA
 
-
+# plot map with event locations
 ggplot(data = venueDE_all, 
        mapping = aes(x = longitude, y = latitude)) +
   geom_polygon(
@@ -484,7 +527,7 @@ ggplot(data = venueDE_all,
        caption = "Source: ticketmaster.com") + 
   theme(title = element_text(size=8, face='bold'),
         plot.caption = element_text(face = "italic")) +
-  geom_point(alpha = 0.8)
+  geom_point(alpha = 0.5)
 ```
 
 
@@ -497,8 +540,270 @@ ggplot(data = venueDE_all,
   (Hint: Clean code pays off! If you have coded the exercises efficiently, only 
   very few adaptions need to be made.)
 
+*Note*: I attempted to use a loop with 
+`cntry <- c("DE", "DK")` and 
+`for (c in cntry){ ... }` to not have to submit such a lengthy file, but I did
+not work out.
 
 
+```{r }
+#
+
+# since the country will vary -> now I'm checking events for Denmark (DK)
+country <- "CH"
+
+# generate response object
+ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
+                        query = list(apikey = key,
+                                     countryCode = country,
+                                     locale = "*"))
+
+# show content & status code of object
+ticketmaster
+
+# extract content of response object
+venuesDE <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+```
+
+
+The extracted list consist of 3 elements.
+In `_embedded$venues` there is a data frame consisting of 20 rows of 19 columns.
+Further, `_links` contains links to the first, next, and last page found on the
+main page "/discovery/v2/venues.json", from where I extracted the data.
+Lastly, `page` contains information on the size 
+(`r as.numeric(venuesDE$page$size)`), total elements 
+(`r as.numeric(venuesDE$page$totalElements)`), 
+total pages 
+(`r as.numeric(venuesDE$page$totalPages)`) and current page number
+(`r as.numeric(venuesDE$page$number)`) of the extracted data. 
+
+
+
+* Extract the name, the city, the postalCode and address, as well as the url 
+  and the longitude and latitude of the venues to a data frame.
+
+
+```{r }
+# venue content
+venue_df <- data.frame(venuesDE$'_embedded'$venues)
+
+# extract variables from data frame 'venue_df'
+vars <- c("name", "postalCode", "url")
+
+# combine in new data frame 'venue_data'
+venue_data <- data.frame(venue_df[vars])
+
+# add variables from data frame within data frame 'venue_df'
+venue_data$city = venue_df[["city"]][["name"]]
+venue_data$address = venue_df[["address"]][["line1"]]
+venue_data$longitude = venue_df[["location"]][["longitude"]]
+venue_data$latitude = venue_df[["location"]][["latitude"]]
+```
+
+
+  
+* Write a for loop that iterates through the results pages and performs a GET 
+  request for all venues in Germany. 
+  After each iteration, extract the seven variables name, city, postalCode, 
+  address, url, longitude, and latitude. 
+  Join the information in one large data frame.
+  
+
+```{r }
+# number of results per page
+perpage <- as.numeric(venuesDE$page$size)
+
+# total results
+n <- as.numeric(venuesDE$page$totalElements)
+
+# number of complete pages
+pages <- floor(n/perpage)-1  # adjustment since page 1 is page 0
+
+# number of entries on the last incomplete page
+remainder <- n-perpage*floor(n/perpage)
+
+# initiate a data frame in correct dimensions to speed up our loop:
+venueDE_all <- data.frame(
+  name = character(n), 
+  city = character(n), 
+  postalCode = character(n), 
+  address = character(n),
+  url = character(n), 
+  longitude = character(n),
+  latitude = character(n)
+)
+
+# loop
+for (i in 0:pages) {
+  
+  # generate response object
+  ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
+                      query = list(apikey = key,
+                                   countryCode = country,
+                                   locale = "*",
+                                   page = i))
+  
+  # extract content of response object
+  venuesDE_content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+  
+  # adjust index, since the first page is page 0
+  k <- i+1
+  
+  # gradually fill data frame page by page 
+  index <- (perpage * k - (perpage-1)):(perpage * k)
+  
+  # if the object name exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$name)) {
+    venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
+  } else { # if the object address does not exist
+    venueDE_all[index,"name"] <- rep(NA, perpage)
+  } 
+  
+  # if the object url exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$url)) {
+    venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
+  } else { # if the object address does not exist
+    venueDE_all[index,"url"] <- rep(NA, perpage)
+  } 
+  
+  # if the object postalCode exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$postalCode)) {
+    venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
+  } else { # if the object address does not exist
+    venueDE_all[index,"postalCode"] <- rep(NA, perpage)
+  } 
+  
+  # if the object city$name exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$city$name)) {
+    venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
+  } else { # if the object address does not exist
+    venueDE_all[index,"city"] <- rep(NA, perpage)
+  } 
+  
+  # if the object address$line1 exists
+  if (!is.null(venuesDE_content$'_embedded'$venues$address$line1)) {
+    venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+  } else { # if the object address does not exist
+    venueDE_all[index,"address"] <- rep(NA, perpage)
+  } 
+  
+  # if the object location§longtude exists (assuming then latitude exists as well)
+  if (!is.null( venuesDE_content$'_embedded'$venues$location$longitude)) {
+    venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
+    venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
+  } else { # if the object location (containing longi- and latitude) does not exist
+    venueDE_all[index,"longitude"] <- rep(NA, perpage)
+    venueDE_all[index,"latitude"] <- rep(NA, perpage)
+  } 
+  
+  # obey rate limit (request per second < 5)
+  Sys.sleep(0.25)
+}
+
+# last page
+i <- i + 1
+
+ticketmaster <- GET("https://app.ticketmaster.com/discovery/v2/venues.json?",
+                    query = list(apikey = key,
+                                 countryCode = country,
+                                 locale = "*",
+                                 page = i))
+
+# extract content of response object
+venuesDE_content <- jsonlite::fromJSON(content(ticketmaster, as="text"))
+
+# adjust index, since the first page is page 0
+k <- i+1
+
+# gradually fill data frame page by page 
+index <- (perpage * k - (perpage-1)):(n)
+
+# if the object name exists
+if (!is.null(venuesDE_content$'_embedded'$venues$name)) {
+  venueDE_all[index,"name"] <- data.frame(venuesDE_content$'_embedded'$venues$name)
+} else { # if the object address does not exist
+  venueDE_all[index,"name"] <- rep(NA, remainder)
+} 
+
+# if the object url exists
+if (!is.null(venuesDE_content$'_embedded'$venues$url)) {
+  venueDE_all[index,"url"] <- data.frame(venuesDE_content$'_embedded'$venues$url)
+} else { # if the object address does not exist
+  venueDE_all[index,"url"] <- rep(NA, remainder)
+} 
+
+# if the object postalCode exists
+if (!is.null(venuesDE_content$'_embedded'$venues$postalCode)) {
+  venueDE_all[index,"postalCode"] <- data.frame(venuesDE_content$'_embedded'$venues$postalCode)
+} else { # if the object address does not exist
+  venueDE_all[index,"postalCode"] <- rep(NA, remainder)
+} 
+
+# if the object city$name exists
+if (!is.null(venuesDE_content$'_embedded'$venues$city$name)) {
+  venueDE_all[index,"city"] <- data.frame(venuesDE_content$'_embedded'$venues$city$name)
+} else { # if the object address does not exist
+  venueDE_all[index,"city"] <- rep(NA, remainder)
+} 
+
+# if the object address$line1 exists
+if (!is.null(venuesDE_content$'_embedded'$venues$address$line1)) {
+  venueDE_all[index,"address"] <- data.frame(venuesDE_content$'_embedded'$venues$address$line1)
+} else { # if the object address does not exist
+  venueDE_all[index,"address"] <- rep(NA, remainder)
+} 
+
+# if the object location§longtude exists (assuming then latitude exists as well)
+if (!is.null( venuesDE_content$'_embedded'$venues$location$longitude)) {
+  venueDE_all[index,"longitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$longitude)
+  venueDE_all[index,"latitude"] <- data.frame(venuesDE_content$'_embedded'$venues$location$latitude)
+} else { # if the object location (containing longi- and latitude) does not exist
+  venueDE_all[index,"longitude"] <- rep(NA, remainder)
+  venueDE_all[index,"latitude"] <- rep(NA, remainder)
+} 
+```
+
+
+
+* Below, you can find code that produces a map of Germany. 
+  Add points to the map indicating the locations of the event venues across Germany.
+* You will find that some coordinates lie way beyond the German borders and can 
+  be assumed to be faulty. 
+  Set coordinate values to NA where the value of longitude is outside the range 
+  (5.866944, 15.043611) or where the value of latitude is outside the range 
+  (47.271679, 55.0846) (these coordinate ranges have been derived from the extreme 
+  points of Germany as listed on Wikipedia (see here). 
+  For extreme points of other countries, see here).
+
+
+```{r }
+# convert longi- and latitude from chr to num
+venueDE_all$longitude <- as.numeric(venueDE_all$longitude)
+venueDE_all$latitude <- as.numeric(venueDE_all$latitude)
+
+# replace values
+#  45°49'05 and 47°48'30 lat.
+#  5° 57'23 and 10°29'31 long
+venueDE_all$longitude[venueDE_all$longitude < 5] <- NA
+venueDE_all$longitude[venueDE_all$longitude > 10] <- NA
+venueDE_all$latitude[venueDE_all$latitude < 45] <- NA
+venueDE_all$latitude[venueDE_all$latitude > 57] <- NA
+
+# plot map with event locations
+ggplot(data = venueDE_all, 
+       mapping = aes(x = longitude, y = latitude)) +
+  geom_polygon(
+    aes(x = long, y = lat, group = group), 
+    data = map_data("world", region = "Switzerland"),
+    fill = "grey90",color = "black") +
+  theme_void() + 
+  coord_quickmap() +
+  labs(title = "Event locations across Switzerland", 
+       caption = "Source: ticketmaster.com") + 
+  theme(title = element_text(size=8, face='bold'),
+        plot.caption = element_text(face = "italic")) +
+  geom_point(alpha = 0.5)
+```
 
 
 
